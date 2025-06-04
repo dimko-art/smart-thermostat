@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Smart Thermostat</title>
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <style>
+    body { font-family: Arial; text-align: center; margin-top: 50px; }
+    input[type=number] { width: 60px; text-align: center; font-size: 16px; }
+    button { font-size: 16px; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <h1>Smart Thermostat</h1>
+  <p>Θερμοκρασία: <span id="temp">--</span> °C</p>
+  <p>Υγρασία: <span id="hum">--</span> %</p>
+  <p>Κατάσταση Θέρμανσης: <span id="relay">--</span></p>
+
+  <hr>
+  <h3>Ρύθμιση θερμοκρασίας</h3>
+  <input type="number" id="nTempInput" min="5" max="50" />
+  <button onclick="sendTemp()">Αποστολή</button>
+
+  <script>
+    const options = {
+      clean: true,
+      connectTimeout: 4000,
+      clientId: 'webClient_' + Math.random().toString(16).substr(2, 8),
+      username: 'hivemq.webclient.1744457110038',
+      password: 'lG2Xjs@%50v:yDd>9EIP',
+    };
+
+    const client = mqtt.connect('wss://a553b26d2ee54624914da5768a2f4839.s1.eu.hivemq.cloud:8884/mqtt', options);
+
+    client.on('connect', () => {
+      console.log('Connected to MQTT broker');
+      client.subscribe('esp8266/temperature');
+      client.subscribe('esp8266/humidity');
+      client.subscribe('esp8266/relayState');
+    });
+
+    client.on('message', (topic, message) => {
+      const msg = message.toString();
+      if (topic === 'esp8266/temperature') {
+        document.getElementById('temp').innerText = msg;
+      }
+      if (topic === 'esp8266/humidity') {
+        document.getElementById('hum').innerText = msg;
+      }
+      if (topic === 'esp8266/relayState') {
+        document.getElementById('relay').innerText = msg === '1' ? 'ON' : 'OFF';
+      }
+    });
+
+    function sendTemp() {
+      const temp = document.getElementById('nTempInput').value;
+      if (temp >= 5 && temp <= 50) {
+        client.publish('set/nTemp', temp.toString());
+        alert('Εστάλη θερμοκρασία: ' + temp + '°C');
+      } else {
+        alert('Παρακαλώ εισάγετε τιμή 5–50');
+      }
+    }
+  </script>
+</body>
+</html>

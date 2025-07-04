@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html>
 <head>
@@ -7,7 +8,9 @@
   <style>
     body { font-family: Arial; text-align: center; margin-top: 50px; }
     input[type=number] { width: 60px; text-align: center; font-size: 16px; }
-    button { font-size: 16px; margin-top: 10px; }
+    button { font-size: 16px; margin: 10px; padding: 10px 20px; }
+    .on { background-color: green; color: white; }
+    .off { background-color: gray; color: white; }
   </style>
 </head>
 <body>
@@ -21,6 +24,11 @@
   <input type="number" id="nTempInput" min="5" max="50" />
   <button onclick="sendTemp()">Αποστολή</button>
 
+  <hr>
+  <h3>Φώτα / Ρελέ</h3>
+  <button id="btn1" class="off" onclick="toggleRelay(1)">Relay 1</button>
+  <button id="btn2" class="off" onclick="toggleRelay(2)">Relay 2</button>
+
   <script>
     const options = {
       clean: true,
@@ -33,23 +41,21 @@
     const client = mqtt.connect('wss://a553b26d2ee54624914da5768a2f4839.s1.eu.hivemq.cloud:8884/mqtt', options);
 
     client.on('connect', () => {
-      console.log('Connected to MQTT broker');
+      console.log('✅ Συνδέθηκε στο MQTT broker');
       client.subscribe('esp8266/temperature');
       client.subscribe('esp8266/humidity');
       client.subscribe('esp8266/relayState');
+      client.subscribe('esp8266/relay1State');
+      client.subscribe('esp8266/relay2State');
     });
 
     client.on('message', (topic, message) => {
       const msg = message.toString();
-      if (topic === 'esp8266/temperature') {
-        document.getElementById('temp').innerText = msg;
-      }
-      if (topic === 'esp8266/humidity') {
-        document.getElementById('hum').innerText = msg;
-      }
-      if (topic === 'esp8266/relayState') {
-        document.getElementById('relay').innerText = msg === '1' ? 'ON' : 'OFF';
-      }
+      if (topic === 'esp8266/temperature') document.getElementById('temp').innerText = msg;
+      if (topic === 'esp8266/humidity') document.getElementById('hum').innerText = msg;
+      if (topic === 'esp8266/relayState') document.getElementById('relay').innerText = msg === '1' ? 'ON' : 'OFF';
+      if (topic === 'esp8266/relay1State') updateUI(1, msg);
+      if (topic === 'esp8266/relay2State') updateUI(2, msg);
     });
 
     function sendTemp() {
@@ -59,6 +65,26 @@
         alert('Εστάλη θερμοκρασία: ' + temp + '°C');
       } else {
         alert('Παρακαλώ εισάγετε τιμή 5–50');
+      }
+    }
+
+    function toggleRelay(id) {
+      const btn = document.getElementById('btn' + id);
+      const currentState = btn.classList.contains('on') ? '1' : '0';
+      const newState = currentState === '1' ? '0' : '1';
+      client.publish('set/relay' + id, newState);
+    }
+
+    function updateUI(id, state) {
+      const btn = document.getElementById('btn' + id);
+      if (state === '1') {
+        btn.classList.remove('off');
+        btn.classList.add('on');
+        btn.innerText = 'Relay ' + id + ' ON';
+      } else {
+        btn.classList.remove('on');
+        btn.classList.add('off');
+        btn.innerText = 'Relay ' + id + ' OFF';
       }
     }
   </script>

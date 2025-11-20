@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html>
 <head>
@@ -25,6 +24,10 @@
   <button onclick="sendTemp()">Αποστολή</button>
 
   <hr>
+  <h3>Τρέχουσα ρυθμισμένη θερμοκρασία</h3>
+  <p>Ρυθμισμένη θερμοκρασία: <span id="currentTemp">--</span> °C</p>
+
+  <hr>
   <h3>Φώτα / Ρελέ</h3>
   <button id="btn1" class="off" onclick="toggleRelay(1)">Relay 1</button>
   <button id="btn2" class="off" onclick="toggleRelay(2)">Relay 2</button>
@@ -47,6 +50,7 @@
       client.subscribe('esp8266/relayState');
       client.subscribe('esp8266/relay1State');
       client.subscribe('esp8266/relay2State');
+      client.subscribe('esp8266/nTemp');
     });
 
     client.on('message', (topic, message) => {
@@ -56,6 +60,10 @@
       if (topic === 'esp8266/relayState') document.getElementById('relay').innerText = msg === '1' ? 'ON' : 'OFF';
       if (topic === 'esp8266/relay1State') updateUI(1, msg);
       if (topic === 'esp8266/relay2State') updateUI(2, msg);
+      if (topic === 'esp8266/nTemp') {
+          document.getElementById('currentTemp').innerText = msg;
+          document.getElementById('nTempInput').value = msg; // ενημέρωση input field
+      }
     });
 
     function sendTemp() {
@@ -90,3 +98,4 @@
   </script>
 </body>
 </html>
+

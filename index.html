@@ -5,14 +5,27 @@
   <title>Smart Thermostat</title>
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
   <style>
-    body { font-family: Arial; text-align: center; margin-top: 50px; }
-    input[type=number] { width: 60px; text-align: center; font-size: 16px; }
-    button { font-size: 16px; margin: 10px; padding: 10px 20px; }
+    body { font-family: Arial; text-align: center; margin-top: 50px; background-color: #121212; color: white; }
+    input[type=number], input[type=text], input[type=password] { width: 120px; text-align: center; font-size: 16px; margin: 5px; }
+    button { font-size: 16px; margin: 10px; padding: 10px 20px; cursor: pointer; }
     .on { background-color: green; color: white; }
     .off { background-color: gray; color: white; }
+    #dashboard { display: none; }
   </style>
 </head>
 <body>
+
+<!-- LOGIN -->
+<div id="loginDiv">
+  <h2>Smart Thermostat Login</h2>
+  <input type="text" id="username" placeholder="Username" /><br>
+  <input type="password" id="password" placeholder="Password" /><br>
+  <button onclick="login()">Σύνδεση</button>
+  <p id="loginMsg" style="color:red;"></p>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard">
   <h1>Smart Thermostat</h1>
   <p>Θερμοκρασία: <span id="temp">--</span> °C</p>
   <p>Υγρασία: <span id="hum">--</span> %</p>
@@ -31,71 +44,81 @@
   <h3>Φώτα / Ρελέ</h3>
   <button id="btn1" class="off" onclick="toggleRelay(1)">Relay 1</button>
   <button id="btn2" class="off" onclick="toggleRelay(2)">Relay 2</button>
+</div>
 
-  <script>
-    const options = {
-      clean: true,
-      connectTimeout: 4000,
-      clientId: 'webClient_' + Math.random().toString(16).substr(2, 8),
-      username: 'hivemq.webclient.1744457110038',
-      password: 'lG2Xjs@%50v:yDd>9EIP',
-    };
-
-    const client = mqtt.connect('wss://a553b26d2ee54624914da5768a2f4839.s1.eu.hivemq.cloud:8884/mqtt', options);
-
-    client.on('connect', () => {
-      console.log('✅ Συνδέθηκε στο MQTT broker');
-      client.subscribe('esp8266/temperature');
-      client.subscribe('esp8266/humidity');
-      client.subscribe('esp8266/relayState');
-      client.subscribe('esp8266/relay1State');
-      client.subscribe('esp8266/relay2State');
-      client.subscribe('esp8266/nTemp');
-    });
-
-    client.on('message', (topic, message) => {
-      const msg = message.toString();
-      if (topic === 'esp8266/temperature') document.getElementById('temp').innerText = msg;
-      if (topic === 'esp8266/humidity') document.getElementById('hum').innerText = msg;
-      if (topic === 'esp8266/relayState') document.getElementById('relay').innerText = msg === '1' ? 'ON' : 'OFF';
-      if (topic === 'esp8266/relay1State') updateUI(1, msg);
-      if (topic === 'esp8266/relay2State') updateUI(2, msg);
-      if (topic === 'esp8266/nTemp') {
-          document.getElementById('currentTemp').innerText = msg;
-          document.getElementById('nTempInput').value = msg; // ενημέρωση input field
-      }
-    });
-
-    function sendTemp() {
-      const temp = document.getElementById('nTempInput').value;
-      if (temp >= 5 && temp <= 50) {
-        client.publish('set/nTemp', temp.toString());
-        alert('Εστάλη θερμοκρασία: ' + temp + '°C');
-      } else {
-        alert('Παρακαλώ εισάγετε τιμή 5–50');
-      }
+<script>
+  // === Απλό login ===
+  const USER = "admin";
+  const PASS = "1234";
+  function login() {
+    const u = document.getElementById("username").value;
+    const p = document.getElementById("password").value;
+    if(u === USER && p === PASS){
+      document.getElementById("loginDiv").style.display = "none";
+      document.getElementById("dashboard").style.display = "block";
+    } else {
+      document.getElementById("loginMsg").innerText = "Λάθος στοιχεία!";
     }
+  }
 
-    function toggleRelay(id) {
-      const btn = document.getElementById('btn' + id);
-      const currentState = btn.classList.contains('on') ? '1' : '0';
-      const newState = currentState === '1' ? '0' : '1';
-      client.publish('set/relay' + id, newState);
-    }
+  // === MQTT ===
+  const options = {
+    clean: true,
+    connectTimeout: 4000,
+    clientId: 'webClient_' + Math.random().toString(16).substr(2, 8),
+    username: 'hivemq.webclient.1744457110038',
+    password: 'lG2Xjs@%50v:yDd>9EIP',
+  };
 
-    function updateUI(id, state) {
-      const btn = document.getElementById('btn' + id);
-      if (state === '1') {
-        btn.classList.remove('off');
-        btn.classList.add('on');
-        btn.innerText = 'Relay ' + id + ' ON';
-      } else {
-        btn.classList.remove('on');
-        btn.classList.add('off');
-        btn.innerText = 'Relay ' + id + ' OFF';
-      }
+  const client = mqtt.connect('wss://a553b26d2ee54624914da5768a2f4839.s1.eu.hivemq.cloud:8884/mqtt', options);
+
+  client.on('connect', () => {
+    console.log('✅ Συνδέθηκε στο MQTT broker');
+    client.subscribe('esp8266/temperature');
+    client.subscribe('esp8266/humidity');
+    client.subscribe('esp8266/relayState');
+    client.subscribe('esp8266/relay1State');
+    client.subscribe('esp8266/relay2State');
+    client.subscribe('esp8266/nTemp');
+  });
+
+  client.on('message', (topic, message) => {
+    const msg = message.toString();
+    if(topic==='esp8266/temperature') document.getElementById('temp').innerText = msg;
+    if(topic==='esp8266/humidity') document.getElementById('hum').innerText = msg;
+    if(topic==='esp8266/relayState') document.getElementById('relay').innerText = msg==='1'?'ON':'OFF';
+    if(topic==='esp8266/relay1State') updateUI(1,msg);
+    if(topic==='esp8266/relay2State') updateUI(2,msg);
+    if(topic==='esp8266/nTemp'){
+      document.getElementById('currentTemp').innerText = msg;
+      document.getElementById('nTempInput').value = msg;
     }
-  </script>
+  });
+
+  function sendTemp(){
+    const temp = document.getElementById('nTempInput').value;
+    if(temp>=5 && temp<=50){
+      client.publish('set/nTemp', temp.toString());
+    } else {
+      alert('Εισάγετε τιμή 5–50');
+    }
+  }
+
+  function toggleRelay(id){
+    const btn = document.getElementById('btn'+id);
+    const currentState = btn.classList.contains('on') ? '1':'0';
+    const newState = currentState==='1' ? '0':'1';
+    client.publish('set/relay'+id,newState);
+  }
+
+  function updateUI(id,state){
+    const btn = document.getElementById('btn'+id);
+    if(state==='1'){
+      btn.classList.remove('off'); btn.classList.add('on'); btn.innerText='Relay '+id+' ON';
+    } else {
+      btn.classList.remove('on'); btn.classList.add('off'); btn.innerText='Relay '+id+' OFF';
+    }
+  }
+</script>
 </body>
 </html>
-

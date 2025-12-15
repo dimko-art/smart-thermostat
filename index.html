@@ -1,166 +1,189 @@
 <!DOCTYPE html>
-<html lang="el">
+<html>
 <head>
-<meta charset="UTF-8">
-<title>Smart Thermostat</title>
-<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <meta charset="UTF-8">
+  <title>Smart Thermostat</title>
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <!-- Firebase SDK -->
+  <script type="module">
+    // Import Firebase
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.24.0/firebase-app.js";
+    import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.24.0/firebase-auth.js";
 
-<style>
-body {
-  font-family: Arial;
-  background: #e6e6e6;
-  color: #222;
-  margin: 0;
-  padding: 30px;
-}
+    const firebaseConfig = {
+      apiKey: "AIzaSyB7hyTIcApBlJ4MrWqCPRFLG1BczaV6cXk",
+      authDomain: "smart-thermostat-web.firebaseapp.com",
+      projectId: "smart-thermostat-web",
+      storageBucket: "smart-thermostat-web.firebasestorage.app",
+      messagingSenderId: "475657642852",
+      appId: "1:475657642852:web:df842ffd805444b017d071"
+    };
 
-.card {
-  background: #ffffff;
-  max-width: 420px;
-  margin: auto;
-  padding: 20px;
-  border-radius: 12px;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-  text-align: center;
-}
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
 
-input {
-  width: 100px;
-  padding: 8px;
-  font-size: 16px;
-  border-radius: 6px;
-  border: 1px solid #ccc;
-  text-align: center;
-  margin: 6px;
-}
-
-button {
-  padding: 10px 20px;
-  font-size: 15px;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  margin: 6px;
-}
-
-.on { background: #4caf50; color: #fff; }
-.off { background: #9e9e9e; color: #fff; }
-</style>
-</head>
-
-<body>
-
-<!-- LOGIN -->
-<div id="loginBox" class="card">
-  <h2>Smart Thermostat</h2>
-  <input id="username" placeholder="Username"><br>
-  <input id="password" type="password" placeholder="Password"><br>
-  <button onclick="login()">Σύνδεση</button>
-  <p id="loginError" style="color:red"></p>
-</div>
-
-<!-- APP -->
-<div id="app" class="card" style="display:none">
-  <h1>Smart Thermostat</h1>
-
-  <p>Θερμοκρασία: <span id="temp">--</span> °C</p>
-  <p>Υγρασία: <span id="hum">--</span> %</p>
-  <p>Θέρμανση: <span id="relay">--</span></p>
-
-  <hr>
-  <h3>Ρύθμιση θερμοκρασίας</h3>
-  <input type="number" id="nTempInput" min="5" max="50">
-  <button onclick="sendTemp()">Αποστολή</button>
-
-  <p>Ρυθμισμένη: <span id="currentTemp">--</span> °C</p>
-
-  <hr>
-  <h3>Ρελέ</h3>
-  <button id="btn1" class="off" onclick="toggleRelay(1)">Relay 1</button>
-  <button id="btn2" class="off" onclick="toggleRelay(2)">Relay 2</button>
-</div>
-
-<script>
-/* ===== LOGIN (βήμα 1–2) ===== */
-const USERS = {
-  admin: "1234",
-  user: "1111"
-};
-
-let client = null;
-
-function login() {
-  const u = username.value;
-  const p = password.value;
-
-  if (USERS[u] && USERS[u] === p) {
-    loginBox.style.display = "none";
-    app.style.display = "block";
-    connectMQTT();
-  } else {
-    loginError.innerText = "Λάθος στοιχεία";
-  }
-}
-
-/* ===== MQTT (βήμα 3–4) ===== */
-function connectMQTT() {
-  client = mqtt.connect(
-    "wss://a553b26d2ee54624914da5768a2f4839.s1.eu.hivemq.cloud:8884/mqtt",
-    {
-      clientId: "web_" + Math.random().toString(16).slice(2),
-      username: "hivemq.webclient.1744457110038",
-      password: "lG2Xjs@%50v:yDd>9EIP",
-      clean: true
+    window.firebaseAuth = auth; // κάνουμε διαθέσιμο το auth στο υπόλοιπο script
+  </script>
+  <style>
+    body {
+      font-family: Arial;
+      background: #e0e0e0;
+      color: #222;
+      text-align: center;
+      margin: 0;
+      padding: 30px;
     }
-  );
+    .card {
+      background: #ffffff;
+      max-width: 420px;
+      margin: auto;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+    input {
+      width: 80%;
+      padding: 8px;
+      font-size: 16px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      text-align: center;
+      margin: 6px 0;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 15px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      margin: 6px;
+    }
+    .on { background: #4caf50; color: #fff; }
+    .off { background: #9e9e9e; color: #fff; }
+    #dashboard { display: none; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <!-- LOGIN / REGISTER -->
+    <div id="authDiv">
+      <h2>Smart Thermostat</h2>
+      <input type="email" id="email" placeholder="Email" /><br>
+      <input type="password" id="password" placeholder="Password" /><br>
+      <button onclick="login()">Σύνδεση</button>
+      <button onclick="register()">Εγγραφή</button>
+      <p id="authMsg" style="color:red;"></p>
+    </div>
 
-  client.on("connect", () => {
-    client.subscribe([
-      "esp8266/temperature",
-      "esp8266/humidity",
-      "esp8266/relayState",
-      "esp8266/relay1State",
-      "esp8266/relay2State",
-      "esp8266/nTemp"
-    ]);
-  });
+    <!-- DASHBOARD -->
+    <div id="dashboard">
+      <button onclick="logout()">Αποσύνδεση</button>
+      <h1>Smart Thermostat</h1>
+      <p>Θερμοκρασία: <span id="temp">--</span> °C</p>
+      <p>Υγρασία: <span id="hum">--</span> %</p>
+      <p>Κατάσταση Θέρμανσης: <span id="relay">--</span></p>
 
-  client.on("message", onMessage);
-}
+      <hr>
+      <h3>Ρύθμιση θερμοκρασίας</h3>
+      <input type="number" id="nTempInput" min="5" max="50" />
+      <button onclick="sendTemp()">Αποστολή</button>
 
-function onMessage(topic, message) {
-  const msg = message.toString();
+      <hr>
+      <h3>Τρέχουσα ρυθμισμένη θερμοκρασία</h3>
+      <p>Ρυθμισμένη θερμοκρασία: <span id="currentTemp">--</span> °C</p>
 
-  if (topic === "esp8266/temperature") temp.innerText = msg;
-  if (topic === "esp8266/humidity") hum.innerText = msg;
-  if (topic === "esp8266/relayState") relay.innerText = msg === "1" ? "ON" : "OFF";
-  if (topic === "esp8266/relay1State") updateUI(1, msg);
-  if (topic === "esp8266/relay2State") updateUI(2, msg);
-  if (topic === "esp8266/nTemp") {
-    currentTemp.innerText = msg;
-    nTempInput.value = msg;
-  }
-}
+      <hr>
+      <h3>Φώτα / Ρελέ</h3>
+      <button id="btn1" class="off" onclick="toggleRelay(1)">Relay 1</button>
+      <button id="btn2" class="off" onclick="toggleRelay(2)">Relay 2</button>
+    </div>
+  </div>
 
-function sendTemp() {
-  const t = nTempInput.value;
-  if (t >= 5 && t <= 50) client.publish("set/nTemp", t);
-}
+  <script type="module">
+    import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.24.0/firebase-auth.js";
 
-function toggleRelay(id) {
-  const btn = document.getElementById("btn" + id);
-  const state = btn.classList.contains("on") ? "0" : "1";
-  client.publish("set/relay" + id, state);
-}
+    const auth = window.firebaseAuth;
 
-function updateUI(id, state) {
-  const btn = document.getElementById("btn" + id);
-  btn.className = state === "1" ? "on" : "off";
-  btn.innerText = "Relay " + id + (state === "1" ? " ON" : " OFF");
-}
-</script>
+    function register() {
+      const email = document.getElementById('email').value;
+      const pass = document.getElementById('password').value;
+      createUserWithEmailAndPassword(auth, email, pass)
+        .then(() => { document.getElementById('authMsg').innerText = "Επιτυχής εγγραφή! Συνδεθείτε."; })
+        .catch(e => { document.getElementById('authMsg').innerText = e.message; });
+    }
 
+    function login() {
+      const email = document.getElementById('email').value;
+      const pass = document.getElementById('password').value;
+      signInWithEmailAndPassword(auth, email, pass)
+        .catch(e => { document.getElementById('authMsg').innerText = e.message; });
+    }
+
+    function logout() {
+      signOut(auth).then(() => { document.getElementById('dashboard').style.display='none'; document.getElementById('authDiv').style.display='block'; });
+    }
+
+    onAuthStateChanged(auth, user => {
+      if(user) {
+        document.getElementById('authDiv').style.display = 'none';
+        document.getElementById('dashboard').style.display = 'block';
+      } else {
+        document.getElementById('dashboard').style.display = 'none';
+        document.getElementById('authDiv').style.display = 'block';
+      }
+    });
+
+    // === MQTT ===
+    const options = {
+      clean: true,
+      connectTimeout: 4000,
+      clientId: 'webClient_' + Math.random().toString(16).substr(2, 8),
+      username: 'hivemq.webclient.1744457110038',
+      password: 'lG2Xjs@%50v:yDd>9EIP',
+    };
+    const client = mqtt.connect('wss://a553b26d2ee54624914da5768a2f4839.s1.eu.hivemq.cloud:8884/mqtt', options);
+
+    client.on('connect', () => {
+      console.log('✅ Συνδέθηκε στο MQTT broker');
+      client.subscribe('esp8266/temperature');
+      client.subscribe('esp8266/humidity');
+      client.subscribe('esp8266/relayState');
+      client.subscribe('esp8266/relay1State');
+      client.subscribe('esp8266/relay2State');
+      client.subscribe('esp8266/nTemp');
+    });
+
+    client.on('message', (topic, message) => {
+      const msg = message.toString();
+      if(topic==='esp8266/temperature') document.getElementById('temp').innerText = msg;
+      if(topic==='esp8266/humidity') document.getElementById('hum').innerText = msg;
+      if(topic==='esp8266/relayState') document.getElementById('relay').innerText = msg==='1'?'ON':'OFF';
+      if(topic==='esp8266/relay1State') updateUI(1,msg);
+      if(topic==='esp8266/relay2State') updateUI(2,msg);
+      if(topic==='esp8266/nTemp'){
+        document.getElementById('currentTemp').innerText = msg;
+        document.getElementById('nTempInput').value = msg;
+      }
+    });
+
+    function sendTemp(){
+      const temp = document.getElementById('nTempInput').value;
+      if(temp>=5 && temp<=50) client.publish('set/nTemp', temp.toString());
+      else alert('Εισάγετε τιμή 5–50');
+    }
+
+    function toggleRelay(id){
+      const btn = document.getElementById('btn'+id);
+      const currentState = btn.classList.contains('on') ? '1':'0';
+      const newState = currentState==='1' ? '0':'1';
+      client.publish('set/relay'+id,newState);
+    }
+
+    function updateUI(id,state){
+      const btn = document.getElementById('btn'+id);
+      if(state==='1'){ btn.classList.remove('off'); btn.classList.add('on'); btn.innerText='Relay '+id+' ON'; }
+      else{ btn.classList.remove('on'); btn.classList.add('off'); btn.innerText='Relay '+id+' OFF'; }
+    }
+  </script>
 </body>
 </html>
-
-
